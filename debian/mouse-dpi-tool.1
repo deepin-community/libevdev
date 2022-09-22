@@ -1,0 +1,22 @@
+.TH mouse-dpi-tool 1 "December 5, 2014" libevdev-tools
+.SH NAME
+mouse-dpi-tool \- mouse resolution estimation tool
+.SH SYNOPSIS
+.B mouse-dpi-tool
+<\fIevdev device\fP>
+.SH DESCRIPTION
+.B mouse-dpi-tool
+reads mouse movement events and calculates the sampling frequency
+and distance covered in device units. Combined with a measurement
+of the actual distance physically covered, this allows the mouse's
+resolution to be estimated.
+.PP
+.SH OPTIONS
+.B mouse-dpi-tool
+accepts no options.
+.SH AUTHORS
+\fBmouse-dpi-tool\fP was written by Peter Hutterer for Red Hat, Inc.
+This manual page was adapted from the program usage information by
+Stephen Kitt <skitt@debian.org>, for the Debian GNU/Linux system (but
+may be used by others). It was last modified for \fBlibevdev\fP version
+1.3.2.

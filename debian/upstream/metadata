@@ -1,0 +1,5 @@
+---
+Repository: https://github.com/freedesktop/libevdev.git
+Repository-Browse: https://github.com/freedesktop/libevdev
+Bug-Database: https://gitlab.freedesktop.org/libevdev/libevdev/-/issues
+Bug-Submit: https://gitlab.freedesktop.org/libevdev/libevdev/-/issues/new
