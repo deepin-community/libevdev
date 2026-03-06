@@ -1,13 +1,14 @@
 project('libevdev', 'c',
-	version: '1.12.0', # change autotools version too
+	version: '1.13.4', # change autotools version too
 	license: 'MIT/Expat',
 	default_options: [ 'c_std=gnu99', 'warning_level=2' ],
-	meson_version: '>= 0.47.0')
+	meson_version: '>= 0.56.0')
 
 libevdev_version = meson.project_version().split('.')
 
-dir_src         = join_paths(meson.source_root(), 'libevdev')
-dir_src_test    = join_paths(meson.source_root(), 'test')
+dir_root        = meson.project_source_root()
+dir_src         = dir_root / 'libevdev'
+dir_src_test    = dir_root / 'test'
 
 # Include directories
 includes_include = include_directories('include')
@@ -39,9 +40,8 @@ pkgconfig = import('pkgconfig')
 dep_lm = cc.find_library('m')
 dep_rt = cc.find_library('rt')
 
-input_h = join_paths(meson.source_root(), 'include', 'linux', host_machine.system(), 'input.h')
-uinput_h = join_paths(meson.source_root(), 'include', 'linux', host_machine.system(), 'uinput.h')
-input_event_codes_h = join_paths(meson.source_root(), 'include', 'linux', host_machine.system(), 'input-event-codes.h')
+input_h = dir_root / 'include' / 'linux' / host_machine.system() / 'input.h'
+input_event_codes_h = dir_root / 'include' / 'linux' / host_machine.system() / 'input-event-codes.h'
 
 # event-names.h
 make_event_names = find_program('libevdev/make-event-names.py')
@@ -55,8 +55,7 @@ event_names_h = configure_file(input: 'libevdev/libevdev.h',
 install_headers('libevdev/libevdev.h',
 		'libevdev/libevdev-uinput.h',
 		subdir: 'libevdev-1.0/libevdev')
-src_libevdev = [
-	event_names_h,
+src_libevdev = [event_names_h] + files(
 	'libevdev/libevdev.h',
 	'libevdev/libevdev-int.h',
 	'libevdev/libevdev-util.h',
@@ -67,12 +66,9 @@ src_libevdev = [
 	'libevdev/libevdev-names.c',
 	'include/linux/input.h',
 	'include/linux/uinput.h',
-	input_event_codes_h,
-	input_h,
-	uinput_h
-]
+)
 
-mapfile = join_paths(dir_src, 'libevdev.sym')
+mapfile = dir_src / 'libevdev.sym'
 version_flag = '-Wl,--version-script,@0@'.format(mapfile)
 lib_libevdev = library('evdev',
 	src_libevdev,
@@ -84,7 +80,9 @@ lib_libevdev = library('evdev',
 	install: true
 )
 
-dep_libevdev = declare_dependency(link_with: lib_libevdev)
+inc_libevdev = include_directories('.')
+dep_libevdev = declare_dependency(link_with: lib_libevdev,
+				  include_directories: [inc_libevdev])
 
 pkgconfig.generate(
 	filebase: 'libevdev',
@@ -104,33 +102,36 @@ install_man(manpage)
 
 
 # tools
-executable('libevdev-events',
-	   sources: ['tools/libevdev-events.c'],
-	   include_directories: [includes_include],
-	   dependencies: dep_libevdev,
-	   install: false)
-executable('libevdev-list-codes',
-	   sources: ['tools/libevdev-list-codes.c'],
-	   include_directories: [includes_include],
-	   dependencies: dep_libevdev,
-	   install: false)
-executable('touchpad-edge-detector',
-	   sources: ['tools/touchpad-edge-detector.c'],
-	   include_directories: [includes_include],
-	   dependencies: [dep_libevdev, dep_lm],
-           install: true)
-executable('mouse-dpi-tool',
-	   sources: ['tools/mouse-dpi-tool.c'],
-	   include_directories: [includes_include],
-	   dependencies: dep_libevdev,
-           install: true)
-executable('libevdev-tweak-device',
-	   sources: ['tools/libevdev-tweak-device.c'],
-	   include_directories: [includes_include],
-	   dependencies: dep_libevdev,
-	   install: true)
-install_man('tools/libevdev-tweak-device.1',
-            'tools/touchpad-edge-detector.1')
+if not get_option('tools').disabled()
+	executable('libevdev-events',
+		   sources: ['tools/libevdev-events.c'],
+		   include_directories: [includes_include],
+		   dependencies: dep_libevdev,
+		   install: false)
+	executable('libevdev-list-codes',
+		   sources: ['tools/libevdev-list-codes.c'],
+		   include_directories: [includes_include],
+		   dependencies: dep_libevdev,
+		   install: false)
+	executable('touchpad-edge-detector',
+		   sources: ['tools/touchpad-edge-detector.c'],
+		   include_directories: [includes_include],
+		   dependencies: [dep_libevdev, dep_lm],
+		   install: true)
+	executable('mouse-dpi-tool',
+		   sources: ['tools/mouse-dpi-tool.c'],
+		   include_directories: [includes_include],
+		   dependencies: dep_libevdev,
+		   install: true)
+	executable('libevdev-tweak-device',
+		   sources: ['tools/libevdev-tweak-device.c'],
+		   include_directories: [includes_include],
+		   dependencies: dep_libevdev,
+		   install: true)
+	install_man('tools/libevdev-tweak-device.1',
+		    'tools/touchpad-edge-detector.1',
+		    'tools/mouse-dpi-tool.1')
+endif
 
 # tests
 dep_check = dependency('check', version: '>= 0.9.9',
@@ -164,7 +165,7 @@ if dep_check.found()
 				      include_directories: [includes_include],
 				      dependencies: [dep_libevdev, dep_check],
 				      install: false)
-	test('test-event-codes', test_event_codes, suite: 'library')
+	test('test-event-codes', test_event_codes, suite: ['library', 'needs-uinput'])
 
 	test_internals = executable('test-internals',
 				    sources: src_common + [
@@ -173,7 +174,7 @@ if dep_check.found()
 				    include_directories: [includes_include],
 				    dependencies: [dep_libevdev, dep_check],
 				    install: false)
-	test('test-internals', test_internals, suite: 'library')
+	test('test-internals', test_internals, suite: ['library', 'needs-uinput'])
 
 	test_uinput = executable('test-uinput',
 				 sources: src_common + [
@@ -182,7 +183,7 @@ if dep_check.found()
 				 include_directories: [includes_include],
 				 dependencies: [dep_libevdev, dep_check],
 				 install: false)
-	test('test-uinput', test_uinput, suite: 'library')
+	test('test-uinput', test_uinput, suite: ['library', 'needs-uinput'])
 
 	test_libevdev = executable('test-libevdev',
 				   sources: src_common + [
@@ -193,7 +194,7 @@ if dep_check.found()
 				   include_directories: [includes_include],
 				   dependencies: [dep_libevdev, dep_check],
 				   install: false)
-	test('test-libevdev', test_libevdev, suite: 'library')
+	test('test-libevdev', test_libevdev, suite: ['library', 'needs-uinput'], env: ['CK_DEFAULT_TIMEOUT=10'])
 
 	test_kernel = executable('test-kernel',
 				 sources: src_common + [
@@ -202,7 +203,7 @@ if dep_check.found()
 				 include_directories: [includes_include],
 				 dependencies: [dep_libevdev, dep_check],
 				 install: false)
-	test('test-kernel', test_kernel, suite: 'kernel')
+	test('test-kernel', test_kernel, suite: ['kernel', 'needs-uinput'])
 
 
 	valgrind = find_program('valgrind', required: false)
@@ -211,14 +212,14 @@ if dep_check.found()
 		valgrind_env.set('CK_TIMEOUT_MULTIPLIER', '10')
 		valgrind_env.set('CK_FORK', 'no')
 		valgrind_env.set('RUNNING_ON_VALGRIND', '1')
-		valgrind_suppressions_file = join_paths(dir_src_test, 'valgrind.suppressions')
+		valgrind_suppressions_file = dir_src_test / 'valgrind.suppressions'
 		add_test_setup('valgrind',
 				exe_wrapper: [ valgrind,
 						'--leak-check=full',
 						'--gen-suppressions=all',
 						'--error-exitcode=3',
 						'--suppressions=' + valgrind_suppressions_file ],
-				env:  valgrind_env,
+				env: valgrind_env,
 				timeout_multiplier: 100)
 	else
 		message('valgrind not found, disabling valgrind test suite')
@@ -232,12 +233,10 @@ endif
 
 doxygen = find_program('doxygen', required: get_option('documentation'))
 if doxygen.found()
-	doxygen = find_program('doxygen')
-
 	src_doxygen = files(
 		# source files
-		join_paths(dir_src, 'libevdev.h'),
-		join_paths(dir_src, 'libevdev-uinput.h'),
+		dir_src / 'libevdev.h',
+		dir_src / 'libevdev-uinput.h',
 		# style files
 		'doc/style/bootstrap.css',
 		'doc/style/customdoxygen.css',
@@ -263,8 +262,8 @@ if doxygen.found()
 	doc_config.set('PACKAGE_NAME', meson.project_name())
 	doc_config.set('PACKAGE_VERSION', meson.project_version())
 	doc_config.set('builddir', meson.current_build_dir())
-	doc_config.set('top_srcdir', meson.source_root())
-	doc_config.set('srcdir', join_paths(meson.source_root(), 'doc'))
+	doc_config.set('top_srcdir', dir_root)
+	doc_config.set('srcdir', dir_root / 'doc')
 
 	doxyfile = configure_file(input: 'doc/libevdev.doxygen.in',
 				  output: 'libevdev.doxygen',
