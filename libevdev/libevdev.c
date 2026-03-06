@@ -44,7 +44,8 @@ struct slot_change_state {
 };
 
 static int sync_mt_state(struct libevdev *dev,
-			 struct slot_change_state *changes_out);
+			 struct slot_change_state changes_out[dev->num_slots]);
+
 static int
 update_key_state(struct libevdev *dev, const struct input_event *e);
 
@@ -804,23 +805,34 @@ push_mt_sync_events(struct libevdev *dev,
 	int rc;
 
 	for (int slot = 0; slot < dev->num_slots;  slot++) {
-		/* stopped touches were already terminated in
-		 * terminate_slots */
-		if (changes[slot].state == TOUCH_STOPPED ||
-		    !bit_is_set(changes[slot].axes, ABS_MT_SLOT))
-			continue;
+		bool have_slot_event = false;
 
-		queue_push_event(dev, EV_ABS, ABS_MT_SLOT, slot);
-		last_reported_slot = slot;
+		if (!bit_is_set(changes[slot].axes, ABS_MT_SLOT))
+			continue;
 
 		for (int axis = ABS_MT_MIN; axis <= ABS_MT_MAX; axis++) {
 			if (axis == ABS_MT_SLOT ||
 			    !libevdev_has_event_code(dev, EV_ABS, axis))
 				continue;
 
-			if (bit_is_set(changes[slot].axes, axis))
+			if (bit_is_set(changes[slot].axes, axis)) {
+                                /* We already sent the tracking id -1 in
+                                 * terminate_slots so don't do that again. There
+                                 * may be other axes like ABS_MT_TOOL_TYPE that
+                                 * need to be synced despite no touch being active */
+                                if (axis == ABS_MT_TRACKING_ID &&
+                                    *slot_value(dev, slot, axis) == -1)
+					continue;
+
+				if (!have_slot_event) {
+					queue_push_event(dev, EV_ABS, ABS_MT_SLOT, slot);
+					last_reported_slot = slot;
+					have_slot_event = true;
+				}
+
 				queue_push_event(dev, EV_ABS, axis,
 						 *slot_value(dev, slot, axis));
+			}
 		}
 	}
 
@@ -910,7 +922,8 @@ sync_state(struct libevdev *dev)
 	bool want_mt_sync = false;
 	int last_reported_slot = 0;
 	struct slot_change_state changes[dev->num_slots > 0 ? dev->num_slots : 1];
-		memset(changes, 0, sizeof(changes));
+
+	memset(changes, 0, sizeof(changes));
 
 	 /* see section "Discarding events before synchronizing" in
 	  * libevdev/libevdev.h */
