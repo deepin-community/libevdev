@@ -1,3 +1,53 @@
+libevdev (1.13.4+dfsg-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Standards-Version 4.7.2, no change required.
+
+ -- Stephen Kitt <skitt@debian.org>  Fri, 28 Mar 2025 21:40:03 +0100
+
+libevdev (1.13.3+dfsg-1) unstable; urgency=medium
+
+  * New upstream release.
+
+ -- Stephen Kitt <skitt@debian.org>  Sat, 07 Sep 2024 18:35:53 +0200
+
+libevdev (1.13.2+dfsg-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Build-depend on pkgconf instead of pkg-config.
+  * Standards-Version 4.7.0, no change required.
+
+ -- Stephen Kitt <skitt@debian.org>  Mon, 03 Jun 2024 12:52:16 +0200
+
+libevdev (1.13.1+dfsg-1) unstable; urgency=medium
+
+  * Upload to unstable.
+
+ -- Stephen Kitt <skitt@debian.org>  Tue, 13 Jun 2023 06:52:38 +0200
+
+libevdev (1.13.1+dfsg-1~exp1) experimental; urgency=medium
+
+  * New upstream release.
+  * Standards-Version 4.6.2, no change required.
+
+ -- Stephen Kitt <skitt@debian.org>  Fri, 12 May 2023 15:33:59 +0200
+
+libevdev (1.13.0+dfsg-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Standards-Version 4.6.1, no change required.
+
+ -- Stephen Kitt <skitt@debian.org>  Wed, 10 Aug 2022 13:54:03 +0200
+
+libevdev (1.12.1+dfsg-1) unstable; urgency=medium
+
+  * New upstream release, merging the mouse-dpi-tool man page.
+  * Point to the freedesktop.org GitLab instance in the upstream
+    metadata.
+  * Enable silent rules in terse builds.
+
+ -- Stephen Kitt <skitt@debian.org>  Thu, 31 Mar 2022 13:10:59 +0200
+
 libevdev (1.12.0+dfsg-1) unstable; urgency=medium
 
   [ Helmut Grohne ]

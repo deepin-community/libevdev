@@ -14,11 +14,17 @@ export CHECK_LIBS=-lpthread $(shell $(DEB_HOST_GNU_TYPE)-pkg-config --libs check
 # doxygen version
 doxygen_version := $(shell dpkg-query -W -f="\$${source:Version}\n" doxygen)
 
+ifeq ($(filter terse,$(DEB_BUILD_OPTIONS)),)
+CONFIG := --disable-silent-rules
+else
+CONFIG := --enable-silent-rules
+endif
+
 %:
 	dh $@
 
 override_dh_auto_configure:
-	dh_auto_configure -- --disable-silent-rules PYTHON=/usr/bin/python3
+	dh_auto_configure -- $(CONFIG) PYTHON=/usr/bin/python3
 
 override_dh_auto_build-indep:
 	dh_auto_build -i -Bdoc
