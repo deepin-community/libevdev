@@ -1008,6 +1008,206 @@ START_TEST(test_syn_delta_tracking_ids_btntool)
 }
 END_TEST
 
+START_TEST(test_syn_delta_mt_tool_type)
+{
+	struct uinput_device* uidev;
+	struct libevdev *dev;
+	int rc;
+	struct input_event ev;
+	int i;
+	const int num_slots = 15;
+	int slot = -1;
+	unsigned long terminated[NLONGS(num_slots)];
+	struct input_absinfo abs[7] = {
+		{ .value = ABS_X, .maximum = 1000 },
+		{ .value = ABS_Y, .maximum = 1000 },
+		{ .value = ABS_MT_POSITION_X, .maximum = 1000 },
+		{ .value = ABS_MT_POSITION_Y, .maximum = 1000 },
+		{ .value = ABS_MT_TOOL_TYPE, .maximum = MT_TOOL_PALM },
+		{ .value = ABS_MT_SLOT, .maximum = num_slots },
+		{ .value = ABS_MT_TRACKING_ID, .minimum = -1, .maximum = 0xff },
+	};
+
+	test_create_abs_device(&uidev, &dev,
+			       ARRAY_LENGTH(abs), abs,
+			       EV_SYN, SYN_REPORT,
+			       -1);
+
+	for (i = num_slots; i >= 0; i--) {
+		int tool_type = MT_TOOL_FINGER;
+		switch (i) {
+			case 0:
+			case 1:
+			case 2:
+			case 3:
+				tool_type = MT_TOOL_FINGER;
+				break;
+			case 4:
+			case 5:
+			case 6:
+			case 7:
+				tool_type = MT_TOOL_PALM;
+				break;
+		}
+		uinput_device_event_multiple(uidev,
+					     EV_ABS, ABS_MT_SLOT, i,
+					     EV_ABS, ABS_MT_TRACKING_ID, i,
+					     EV_ABS, ABS_X, 100 + i,
+					     EV_ABS, ABS_Y, 500 + i,
+					     EV_ABS, ABS_MT_POSITION_X, 100 + i,
+					     EV_ABS, ABS_MT_POSITION_Y, 500 + i,
+					     EV_ABS, ABS_MT_TOOL_TYPE, tool_type,
+					     EV_SYN, SYN_REPORT, 0,
+					     -1, -1);
+		do {
+			rc = libevdev_next_event(dev, LIBEVDEV_READ_FLAG_NORMAL, &ev);
+			ck_assert_int_ne(rc, LIBEVDEV_READ_STATUS_SYNC);
+		} while (rc >= 0);
+	}
+
+	/* we have a bunch of touches now, and libevdev knows it. Change all
+	 * touches */
+	for (i = num_slots; i >= 0; i--) {
+		uinput_device_event(uidev, EV_ABS, ABS_MT_SLOT, i);
+		switch (i) {
+			/* Slot 0 is a finger and stays a finger */
+			case 0:
+			/* Slot 4 is a palm and stays a palm */
+			case 4:
+				uinput_device_event_multiple(uidev,
+							     EV_ABS, ABS_X, 200 + i,
+							     EV_ABS, ABS_Y, 700 + i,
+							     EV_ABS, ABS_MT_POSITION_X, 200 + i,
+							     EV_ABS, ABS_MT_POSITION_Y, 700 + i,
+							     -1, -1);
+				break;
+			/* Slot 1 is a finger and changes active touch to palm */
+			case 1:
+				uinput_device_event(uidev, EV_ABS, ABS_MT_TOOL_TYPE, MT_TOOL_PALM);
+				break;
+			/* Slot 2 is a finger and terminates */
+			case 2:
+			/* Slot 6 is a palm and terminates */
+			case 6:
+				uinput_device_event(uidev, EV_ABS, ABS_MT_TRACKING_ID, -1);
+				break;
+			/* Slot 3 is a finger and restarts as finger */
+			case 3:
+			/* Slot 5 is a palm and restarts as finger */
+			case 5:
+				uinput_device_event_multiple(uidev,
+							     EV_ABS, ABS_MT_TRACKING_ID, num_slots + i,
+							     EV_ABS, ABS_X, 200 + i,
+							     EV_ABS, ABS_Y, 700 + i,
+							     EV_ABS, ABS_MT_POSITION_X, 200 + i,
+							     EV_ABS, ABS_MT_POSITION_Y, 700 + i,
+							     EV_ABS, ABS_MT_TOOL_TYPE, MT_TOOL_FINGER,
+							     -1, -1);
+				break;
+			/* Slot 7 is a palm and restarts and terminates again as finger */
+			case 7:
+				uinput_device_event(uidev, EV_ABS, ABS_MT_TRACKING_ID, -1);
+				uinput_device_event(uidev, EV_SYN, SYN_REPORT, 0);
+				uinput_device_event_multiple(uidev,
+							     EV_ABS, ABS_MT_TRACKING_ID, num_slots + i,
+							     EV_ABS, ABS_X, 200 + i,
+							     EV_ABS, ABS_Y, 700 + i,
+							     EV_ABS, ABS_MT_POSITION_X, 200 + i,
+							     EV_ABS, ABS_MT_POSITION_Y, 700 + i,
+							     EV_ABS, ABS_MT_TOOL_TYPE, MT_TOOL_FINGER,
+							     -1, -1);
+				uinput_device_event(uidev, EV_ABS, ABS_MT_TRACKING_ID, -1);
+				uinput_device_event(uidev, EV_SYN, SYN_REPORT, 0);
+				break;
+		}
+		uinput_device_event(uidev, EV_SYN, SYN_REPORT, 0);
+	}
+
+	/* Force sync */
+	rc = libevdev_next_event(dev, LIBEVDEV_READ_FLAG_FORCE_SYNC, &ev);
+	ck_assert_int_eq(rc, LIBEVDEV_READ_STATUS_SYNC);
+
+	/* now check for the right tracking IDs */
+	memset(terminated, 0, sizeof(terminated));
+	slot = -1;
+	while ((rc = libevdev_next_event(dev, LIBEVDEV_READ_FLAG_SYNC, &ev)) != -EAGAIN) {
+		if (libevdev_event_is_code(&ev, EV_SYN, SYN_REPORT))
+			continue;
+
+		if (libevdev_event_is_code(&ev, EV_ABS, ABS_MT_SLOT)) {
+			slot = ev.value;
+			continue;
+		}
+
+		if (libevdev_event_is_code(&ev, EV_ABS, ABS_X) ||
+		    libevdev_event_is_code(&ev, EV_ABS, ABS_Y))
+			continue;
+
+		ck_assert_int_ne(slot, -1);
+
+		if (libevdev_event_is_code(&ev, EV_ABS, ABS_MT_TRACKING_ID)) {
+			switch (slot) {
+				case 0:
+				case 1:
+				case 4:
+					ck_abort_msg("No ABS_MT_TRACKING_ID expected for this slot");
+					break;
+				case 2:
+				case 6:
+				case 7:
+					ck_assert_int_eq(ev.value, -1);
+					break;
+				case 3:
+				case 5:
+					if (!bit_is_set(terminated, slot)) {
+						ck_assert_int_eq(ev.value, -1);
+						set_bit(terminated, slot);
+					} else {
+						ck_assert_int_eq(ev.value, num_slots + slot);
+					}
+					break;
+			}
+
+			continue;
+		}
+
+		if (libevdev_event_is_code(&ev, EV_ABS, ABS_MT_TOOL_TYPE)) {
+			switch (slot) {
+				case 0:
+				case 2:
+				case 3:
+				case 4:
+				case 6:
+					ck_abort_msg("No ABS_MT_TOOL_TYPE expected for this slot");
+					break;
+				case 1:
+					ck_assert_int_eq(ev.value, MT_TOOL_PALM);
+					break;
+				case 5:
+				case 7:
+					ck_assert_int_eq(ev.value, MT_TOOL_FINGER);
+					break;
+			}
+			continue;
+		}
+
+		switch(ev.code) {
+			case ABS_MT_POSITION_X:
+				ck_assert_int_eq(ev.value, 200 + slot);
+				break;
+			case ABS_MT_POSITION_Y:
+				ck_assert_int_eq(ev.value, 700 + slot);
+				break;
+			default:
+				ck_abort();
+		}
+	}
+
+	uinput_device_free(uidev);
+	libevdev_free(dev);
+}
+END_TEST
+
 START_TEST(test_syn_delta_late_sync)
 {
 	struct uinput_device* uidev;
@@ -2060,6 +2260,7 @@ TEST_SUITE_ROOT_PRIVILEGES(libevdev_events)
 	add_test(s, test_syn_delta_late_sync);
 	add_test(s, test_syn_delta_tracking_ids);
 	add_test(s, test_syn_delta_tracking_ids_btntool);
+	add_test(s, test_syn_delta_mt_tool_type);
 
 	add_test(s, test_skipped_sync);
 	add_test(s, test_incomplete_sync);

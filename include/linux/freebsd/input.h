@@ -6,14 +6,15 @@
  * under the terms of the GNU General Public License version 2 as published by
  * the Free Software Foundation.
  */
-#ifndef _INPUT_H
-#define _INPUT_H
+#ifndef _UAPI_INPUT_H
+#define _UAPI_INPUT_H
 
 
+#ifndef __KERNEL__
 #include <sys/time.h>
-#include <sys/ioctl.h>
+#include <sys/ioccom.h>
 #include <sys/types.h>
-#include <linux/types.h>
+#endif
 
 #include "input-event-codes.h"
 
@@ -24,7 +25,7 @@
  */
 
 struct input_event {
-#if (__BITS_PER_LONG != 32 || !defined(__USE_TIME_BITS64)) && !defined(__KERNEL__)
+#if 1 /* (__BITS_PER_LONG != 32 || !defined(__USE_TIME_BITS64)) && !defined(__KERNEL__) */
 	struct timeval time;
 #define input_event_sec time.tv_sec
 #define input_event_usec time.tv_usec
@@ -39,9 +40,9 @@ struct input_event {
 #define input_event_sec  __sec
 #define input_event_usec __usec
 #endif
-	__u16 type;
-	__u16 code;
-	__s32 value;
+	uint16_t type;
+	uint16_t code;
+	int32_t value;
 };
 
 /*
@@ -55,10 +56,10 @@ struct input_event {
  */
 
 struct input_id {
-	__u16 bustype;
-	__u16 vendor;
-	__u16 product;
-	__u16 version;
+	uint16_t bustype;
+	uint16_t vendor;
+	uint16_t product;
+	uint16_t version;
 };
 
 /**
@@ -76,25 +77,22 @@ struct input_id {
  * Note that input core does not clamp reported values to the
  * [minimum, maximum] limits, such task is left to userspace.
  *
- * The default resolution for main axes (ABS_X, ABS_Y, ABS_Z,
- * ABS_MT_POSITION_X, ABS_MT_POSITION_Y) is reported in units
- * per millimeter (units/mm), resolution for rotational axes
- * (ABS_RX, ABS_RY, ABS_RZ) is reported in units per radian.
- * The resolution for the size axes (ABS_MT_TOUCH_MAJOR,
- * ABS_MT_TOUCH_MINOR, ABS_MT_WIDTH_MAJOR, ABS_MT_WIDTH_MINOR)
- * is reported in units per millimeter (units/mm).
+ * The default resolution for main axes (ABS_X, ABS_Y, ABS_Z)
+ * is reported in units per millimeter (units/mm), resolution
+ * for rotational axes (ABS_RX, ABS_RY, ABS_RZ) is reported
+ * in units per radian.
  * When INPUT_PROP_ACCELEROMETER is set the resolution changes.
  * The main axes (ABS_X, ABS_Y, ABS_Z) are then reported in
- * units per g (units/g) and in units per degree per second
+ * in units per g (units/g) and in units per degree per second
  * (units/deg/s) for rotational axes (ABS_RX, ABS_RY, ABS_RZ).
  */
 struct input_absinfo {
-	__s32 value;
-	__s32 minimum;
-	__s32 maximum;
-	__s32 fuzz;
-	__s32 flat;
-	__s32 resolution;
+	int32_t value;
+	int32_t minimum;
+	int32_t maximum;
+	int32_t fuzz;
+	int32_t flat;
+	int32_t resolution;
 };
 
 /**
@@ -114,17 +112,17 @@ struct input_absinfo {
  */
 struct input_keymap_entry {
 #define INPUT_KEYMAP_BY_INDEX	(1 << 0)
-	__u8  flags;
-	__u8  len;
-	__u16 index;
-	__u32 keycode;
-	__u8  scancode[32];
+	uint8_t  flags;
+	uint8_t  len;
+	uint16_t index;
+	uint32_t keycode;
+	uint8_t  scancode[32];
 };
 
 struct input_mask {
-	__u32 type;
-	__u32 codes_size;
-	__u64 codes_ptr;
+	uint32_t type;
+	uint32_t codes_size;
+	uint64_t codes_ptr;
 };
 
 #define EVIOCGVERSION		_IOR('E', 0x01, int)			/* get driver version */
@@ -132,15 +130,15 @@ struct input_mask {
 #define EVIOCGREP		_IOR('E', 0x03, unsigned int[2])	/* get repeat settings */
 #define EVIOCSREP		_IOW('E', 0x03, unsigned int[2])	/* set repeat settings */
 
-#define EVIOCGKEYCODE		_IOR('E', 0x04, unsigned int[2])        /* get keycode */
-#define EVIOCGKEYCODE_V2	_IOR('E', 0x04, struct input_keymap_entry)
+#define EVIOCGKEYCODE		_IOWR('E', 0x04, unsigned int[2])        /* get keycode */
+#define EVIOCGKEYCODE_V2	_IOWR('E', 0x04, struct input_keymap_entry)
 #define EVIOCSKEYCODE		_IOW('E', 0x04, unsigned int[2])        /* set keycode */
 #define EVIOCSKEYCODE_V2	_IOW('E', 0x04, struct input_keymap_entry)
 
-#define EVIOCGNAME(len)		_IOC(_IOC_READ, 'E', 0x06, len)		/* get device name */
-#define EVIOCGPHYS(len)		_IOC(_IOC_READ, 'E', 0x07, len)		/* get physical location */
-#define EVIOCGUNIQ(len)		_IOC(_IOC_READ, 'E', 0x08, len)		/* get unique identifier */
-#define EVIOCGPROP(len)		_IOC(_IOC_READ, 'E', 0x09, len)		/* get device properties */
+#define EVIOCGNAME(len)		_IOC(IOC_OUT, 'E', 0x06, len)		/* get device name */
+#define EVIOCGPHYS(len)		_IOC(IOC_OUT, 'E', 0x07, len)		/* get physical location */
+#define EVIOCGUNIQ(len)		_IOC(IOC_OUT, 'E', 0x08, len)		/* get unique identifier */
+#define EVIOCGPROP(len)		_IOC(IOC_OUT, 'E', 0x09, len)		/* get device properties */
 
 /**
  * EVIOCGMTSLOTS(len) - get MT slot values
@@ -149,14 +147,14 @@ struct input_mask {
  * The ioctl buffer argument should be binary equivalent to
  *
  * struct input_mt_request_layout {
- *	__u32 code;
- *	__s32 values[num_slots];
+ *	uint32_t code;
+ *	int32_t values[num_slots];
  * };
  *
  * where num_slots is the (arbitrary) number of MT slots to extract.
  *
  * The ioctl size argument (len) is the size of the buffer, which
- * should satisfy len = (num_slots + 1) * sizeof(__s32).  If len is
+ * should satisfy len = (num_slots + 1) * sizeof(int32_t).  If len is
  * too small to fit all available slots, the first num_slots are
  * returned.
  *
@@ -166,23 +164,23 @@ struct input_mask {
  *
  * If the request code is not an ABS_MT value, -EINVAL is returned.
  */
-#define EVIOCGMTSLOTS(len)	_IOC(_IOC_READ, 'E', 0x0a, len)
+#define EVIOCGMTSLOTS(len)	_IOC(IOC_INOUT, 'E', 0x0a, len)
 
-#define EVIOCGKEY(len)		_IOC(_IOC_READ, 'E', 0x18, len)		/* get global key state */
-#define EVIOCGLED(len)		_IOC(_IOC_READ, 'E', 0x19, len)		/* get all LEDs */
-#define EVIOCGSND(len)		_IOC(_IOC_READ, 'E', 0x1a, len)		/* get all sounds status */
-#define EVIOCGSW(len)		_IOC(_IOC_READ, 'E', 0x1b, len)		/* get all switch states */
+#define EVIOCGKEY(len)		_IOC(IOC_OUT, 'E', 0x18, len)		/* get global key state */
+#define EVIOCGLED(len)		_IOC(IOC_OUT, 'E', 0x19, len)		/* get all LEDs */
+#define EVIOCGSND(len)		_IOC(IOC_OUT, 'E', 0x1a, len)		/* get all sounds status */
+#define EVIOCGSW(len)		_IOC(IOC_OUT, 'E', 0x1b, len)		/* get all switch states */
 
-#define EVIOCGBIT(ev,len)	_IOC(_IOC_READ, 'E', 0x20 + (ev), len)	/* get event bits */
+#define EVIOCGBIT(ev,len)	_IOC(IOC_OUT, 'E', 0x20 + (ev), len)	/* get event bits */
 #define EVIOCGABS(abs)		_IOR('E', 0x40 + (abs), struct input_absinfo)	/* get abs value/limits */
 #define EVIOCSABS(abs)		_IOW('E', 0xc0 + (abs), struct input_absinfo)	/* set abs value/limits */
 
 #define EVIOCSFF		_IOW('E', 0x80, struct ff_effect)	/* send a force effect to a force feedback device */
-#define EVIOCRMFF		_IOW('E', 0x81, int)			/* Erase a force effect */
+#define EVIOCRMFF		_IOWINT('E', 0x81)			/* Erase a force effect */
 #define EVIOCGEFFECTS		_IOR('E', 0x84, int)			/* Report number of effects playable at the same time */
 
-#define EVIOCGRAB		_IOW('E', 0x90, int)			/* Grab/Release device */
-#define EVIOCREVOKE		_IOW('E', 0x91, int)			/* Revoke device access */
+#define EVIOCGRAB		_IOWINT('E', 0x90)			/* Grab/Release device */
+#define EVIOCREVOKE		_IOWINT('E', 0x91)			/* Revoke device access */
 
 /**
  * EVIOCGMASK - Retrieve current event mask
@@ -213,7 +211,7 @@ struct input_mask {
  * if the receive-buffer points to invalid memory, or EINVAL if the kernel
  * does not implement the ioctl.
  */
-#define EVIOCGMASK		_IOR('E', 0x92, struct input_mask)	/* Get event-masks */
+#define EVIOCGMASK		_IOW('E', 0x92, struct input_mask)	/* Get event-masks */
 
 /**
  * EVIOCSMASK - Set event mask
@@ -272,7 +270,6 @@ struct input_mask {
 #define BUS_RMI			0x1D
 #define BUS_CEC			0x1E
 #define BUS_INTEL_ISHTP		0x1F
-#define BUS_AMD_SFH		0x20
 
 /*
  * MT_TOOL types
@@ -306,8 +303,8 @@ struct input_mask {
  * @delay: delay before effect should start playing
  */
 struct ff_replay {
-	__u16 length;
-	__u16 delay;
+	uint16_t length;
+	uint16_t delay;
 };
 
 /**
@@ -316,8 +313,8 @@ struct ff_replay {
  * @interval: controls how soon the effect can be re-triggered
  */
 struct ff_trigger {
-	__u16 button;
-	__u16 interval;
+	uint16_t button;
+	uint16_t interval;
 };
 
 /**
@@ -333,10 +330,10 @@ struct ff_trigger {
  * Valid range for the attack and fade levels is 0x0000 - 0x7fff
  */
 struct ff_envelope {
-	__u16 attack_length;
-	__u16 attack_level;
-	__u16 fade_length;
-	__u16 fade_level;
+	uint16_t attack_length;
+	uint16_t attack_level;
+	uint16_t fade_length;
+	uint16_t fade_level;
 };
 
 /**
@@ -345,7 +342,7 @@ struct ff_envelope {
  * @envelope: envelope data
  */
 struct ff_constant_effect {
-	__s16 level;
+	int16_t level;
 	struct ff_envelope envelope;
 };
 
@@ -356,8 +353,8 @@ struct ff_constant_effect {
  * @envelope: envelope data
  */
 struct ff_ramp_effect {
-	__s16 start_level;
-	__s16 end_level;
+	int16_t start_level;
+	int16_t end_level;
 	struct ff_envelope envelope;
 };
 
@@ -372,14 +369,14 @@ struct ff_ramp_effect {
  * @center: position of the dead zone
  */
 struct ff_condition_effect {
-	__u16 right_saturation;
-	__u16 left_saturation;
+	uint16_t right_saturation;
+	uint16_t left_saturation;
 
-	__s16 right_coeff;
-	__s16 left_coeff;
+	int16_t right_coeff;
+	int16_t left_coeff;
 
-	__u16 deadband;
-	__s16 center;
+	uint16_t deadband;
+	int16_t center;
 };
 
 /**
@@ -401,16 +398,16 @@ struct ff_condition_effect {
  * You can therefore dispose of the memory after the upload/update.
  */
 struct ff_periodic_effect {
-	__u16 waveform;
-	__u16 period;
-	__s16 magnitude;
-	__s16 offset;
-	__u16 phase;
+	uint16_t waveform;
+	uint16_t period;
+	int16_t magnitude;
+	int16_t offset;
+	uint16_t phase;
 
 	struct ff_envelope envelope;
 
-	__u32 custom_len;
-	__s16 *custom_data;
+	uint32_t custom_len;
+	int16_t *custom_data;
 };
 
 /**
@@ -422,8 +419,8 @@ struct ff_periodic_effect {
  * represents the magnitude of the vibration generated by the heavy one.
  */
 struct ff_rumble_effect {
-	__u16 strong_magnitude;
-	__u16 weak_magnitude;
+	uint16_t strong_magnitude;
+	uint16_t weak_magnitude;
 };
 
 /**
@@ -450,9 +447,9 @@ struct ff_rumble_effect {
  *	270 deg -> 0xC000 (right)
  */
 struct ff_effect {
-	__u16 type;
-	__s16 id;
-	__u16 direction;
+	uint16_t type;
+	int16_t id;
+	uint16_t direction;
 	struct ff_trigger trigger;
 	struct ff_replay replay;
 
@@ -513,4 +510,4 @@ struct ff_effect {
 #define FF_MAX		0x7f
 #define FF_CNT		(FF_MAX+1)
 
-#endif /* _INPUT_H */
+#endif /* _UAPI_INPUT_H */
